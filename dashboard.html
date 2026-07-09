@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoreo de ingresos - Eventos</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #f2f2f2;
+    margin: 0;
+    padding: 16px;
+  }
+  h1 { font-size: 20px; text-align: center; margin-bottom: 4px; }
+  #actualizado { text-align: center; font-size: 12px; color: #666; margin-bottom: 16px; }
+  #controles {
+    max-width: 900px;
+    margin: 0 auto 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  #buscar {
+    flex: 1;
+    min-width: 180px;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+  #recargar {
+    padding: 8px 14px;
+    font-size: 14px;
+    border: none;
+    border-radius: 6px;
+    background: #1565c0;
+    color: #fff;
+    cursor: pointer;
+  }
+  #contenedorEventos { max-width: 900px; margin: 0 auto; }
+  .tarjetaEvento {
+    background: #fff;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .cabeceraEvento {
+    padding: 12px 16px;
+    background: #1565c0;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .cabeceraEvento h2 { font-size: 15px; margin: 0; }
+  .cabeceraEvento .stats { font-size: 13px; opacity: 0.9; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; }
+  th { background: #fafafa; }
+  .estado-ingreso { color: #2e7d32; font-weight: bold; }
+  .estado-pendiente { color: #999; }
+  .oculto { display: none; }
+  #vacio { text-align: center; color: #777; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<h1>Monitoreo de ingresos por evento</h1>
+<div id="actualizado">Cargando...</div>
+
+<div id="controles">
+  <input id="buscar" type="text" placeholder="Buscar por nombre, DNI o evento...">
+  <button id="recargar">Actualizar ahora</button>
+</div>
+
+<div id="contenedorEventos"></div>
+<div id="vacio" class="oculto">No hay datos todavia. Verifica que CONTROL_INGRESOS tenga participantes.</div>
+
+<script>
+  // Misma URL de la app web usada en el escaner
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx3D_ijj7w_SUYUXPstrmOUtmA3_lYVkjXvapDdpRQTGmtYTNMkItzI613lSQVQSOAQAA/exec';
+
+  let datosCompletos = [];
+
+  function cargarDatos() {
+    document.getElementById('actualizado').textContent = 'Actualizando...';
+    fetch(WEBAPP_URL + '?accion=listado')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          document.getElementById('actualizado').textContent = 'Error al cargar los datos.';
+          return;
+        }
+        datosCompletos = data.participantes;
+        pintarTodo();
+        const ahora = new Date();
+        document.getElementById('actualizado').textContent =
+          'Actualizado: ' + ahora.toLocaleTimeString();
+      })
+      .catch(function () {
+        document.getElementById('actualizado').textContent = 'No se pudo conectar con el sistema.';
+      });
+  }
+
+  function pintarTodo() {
+    const filtro = document.getElementById('buscar').value.trim().toLowerCase();
+    const datosFiltrados = datosCompletos.filter(function (p) {
+      if (!filtro) return true;
+      return (p.nombre + ' ' + p.dni + ' ' + p.evento).toLowerCase().indexOf(filtro) !== -1;
+    });
+
+    const contenedor = document.getElementById('contenedorEventos');
+    contenedor.innerHTML = '';
+
+    if (datosFiltrados.length === 0) {
+      document.getElementById('vacio').classList.remove('oculto');
+      return;
+    }
+    document.getElementById('vacio').classList.add('oculto');
+
+    // Agrupar manteniendo el orden en que llegaron (por evento)
+    const eventosOrden = [];
+    const grupos = {};
+    datosFiltrados.forEach(function (p) {
+      if (!grupos[p.evento]) {
+        grupos[p.evento] = [];
+        eventosOrden.push(p.evento);
+      }
+      grupos[p.evento].push(p);
+    });
+
+    eventosOrden.forEach(function (nombreEvento) {
+      const filas = grupos[nombreEvento];
+      const totalIngresaron = filas.filter(function (f) { return f.estado === 'INGRESO'; }).length;
+
+      const tarjeta = document.createElement('div');
+      tarjeta.className = 'tarjetaEvento';
+
+      const fechaEvento = filas[0].fecha;
+      const lugarEvento = filas[0].lugar;
+
+      let filasHtml = '';
+      filas.forEach(function (p) {
+        const esIngreso = p.estado === 'INGRESO';
+        filasHtml +=
+          '<tr>' +
+          '<td>' + p.nombre + '</td>' +
+          '<td>' + p.dni + '</td>' +
+          '<td class="' + (esIngreso ? 'estado-ingreso' : 'estado-pendiente') + '">' +
+            (esIngreso ? 'Ingreso' : 'Pendiente') + '</td>' +
+          '<td>' + (p.horaIngreso || '-') + '</td>' +
+          '</tr>';
+      });
+
+      tarjeta.innerHTML =
+        '<div class="cabeceraEvento">' +
+          '<div>' +
+            '<h2>' + nombreEvento + '</h2>' +
+            '<div class="stats">' + fechaEvento + (lugarEvento ? ' · ' + lugarEvento : '') + '</div>' +
+          '</div>' +
+          '<div class="stats">' + totalIngresaron + ' / ' + filas.length + ' ingresaron</div>' +
+        '</div>' +
+        '<table>' +
+          '<thead><tr><th>Nombre</th><th>DNI</th><th>Estado</th><th>Hora ingreso</th></tr></thead>' +
+          '<tbody>' + filasHtml + '</tbody>' +
+        '</table>';
+
+      contenedor.appendChild(tarjeta);
+    });
+  }
+
+  document.getElementById('recargar').addEventListener('click', cargarDatos);
+  document.getElementById('buscar').addEventListener('input', pintarTodo);
+
+  cargarDatos();
+  setInterval(cargarDatos, 30000); // se refresca solo cada 30 segundos
+</script>
+</body>
+</html>
