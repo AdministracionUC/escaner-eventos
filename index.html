@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Escaner de acceso - Eventos</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #f2f2f2;
+    margin: 0;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 { font-size: 18px; margin-bottom: 8px; text-align: center; }
+  #reader { width: 100%; max-width: 420px; border-radius: 8px; overflow: hidden; }
+  #resultado {
+    width: 100%;
+    max-width: 420px;
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 8px;
+    background: #fff;
+    display: none;
+  }
+  #resultado.ok { border: 3px solid #2e7d32; }
+  #resultado.error { border: 3px solid #c62828; }
+  #resultado.usado { border: 3px solid #f9a825; }
+  #resultado h2 { margin: 0 0 8px; font-size: 20px; }
+  #resultado p { margin: 4px 0; font-size: 15px; }
+  #resultado button {
+    margin-top: 12px;
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: none;
+    border-radius: 6px;
+    background: #2e7d32;
+    color: #fff;
+    cursor: pointer;
+  }
+  #resultado button:disabled { background: #999; }
+  #reiniciar {
+    margin-top: 12px;
+    width: 100%;
+    max-width: 420px;
+    padding: 10px;
+    background: #444;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<h1>Escaner de acceso - Eventos</h1>
+<div id="reader"></div>
+<div id="resultado"></div>
+<button id="reiniciar" style="display:none;">Escanear siguiente</button>
+
+<script>
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx3D_ijj7w_SUYUXPstrmOUtmA3_lYVkjXvapDdpRQTGmtYTNMkItzI613lSQVQSOAQAA/exec';
+
+  const divResultado = document.getElementById('resultado');
+  const botonReiniciar = document.getElementById('reiniciar');
+  let escaneando = true;
+
+  const scanner = new Html5Qrcode('reader');
+
+  function iniciarEscaner() {
+    escaneando = true;
+    divResultado.style.display = 'none';
+    botonReiniciar.style.display = 'none';
+    scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: 250 },
+      onEscaneoExitoso
+    ).catch(function (err) {
+      mostrarError('No se pudo acceder a la camara: ' + err);
+    });
+  }
+
+  function onEscaneoExitoso(codigoDecodificado) {
+    if (!escaneando) return;
+    escaneando = false;
+    scanner.stop();
+    consultarCodigo(codigoDecodificado);
+  }
+
+  function consultarCodigo(codigo) {
+    fetch(WEBAPP_URL + '?accion=consultar&codigo=' + encodeURIComponent(codigo))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.encontrado) {
+          mostrarError('Codigo no encontrado. Verifica el QR.');
+          return;
+        }
+        mostrarParticipante(codigo, data);
+      })
+      .catch(function () {
+        mostrarError('No se pudo conectar con el sistema. Revisa tu conexion.');
+      });
+  }
+
+  function mostrarParticipante(codigo, data) {
+    const yaIngreso = data.estado === 'INGRESO';
+    divResultado.className = yaIngreso ? 'usado' : '';
+    divResultado.innerHTML =
+      '<h2>' + (yaIngreso ? 'YA REGISTRO INGRESO' : 'DATOS DEL PARTICIPANTE') + '</h2>' +
+      '<p><b>Nombre:</b> ' + data.nombre + '</p>' +
+      '<p><b>DNI:</b> ' + data.dni + '</p>' +
+      '<p><b>Evento:</b> ' + data.evento + '</p>' +
+      '<p><b>Fecha:</b> ' + data.fecha + '</p>' +
+      '<p><b>Lugar / Area:</b> ' + data.lugar + '</p>' +
+      (yaIngreso ? '<p><b>Hora de ingreso:</b> ' + data.horaIngreso + '</p>' : '') +
+      (yaIngreso ? '' : '<button id="btnRegistrar">Confirmar ingreso</button>');
+    divResultado.style.display = 'block';
+    botonReiniciar.style.display = 'block';
+
+    if (!yaIngreso) {
+      document.getElementById('btnRegistrar').addEventListener('click', function () {
+        registrarIngreso(codigo, this);
+      });
+    }
+  }
+
+  function registrarIngreso(codigo, boton) {
+    boton.disabled = true;
+    boton.textContent = 'Registrando...';
+    fetch(WEBAPP_URL + '?accion=registrar&codigo=' + encodeURIComponent(codigo))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          divResultado.className = 'ok';
+          divResultado.querySelector('h2').textContent = 'INGRESO AUTORIZADO';
+          boton.remove();
+        } else {
+          mostrarError(data.mensaje || 'No se pudo registrar el ingreso.');
+        }
+      });
+  }
+
+  function mostrarError(mensaje) {
+    divResultado.className = 'error';
+    divResultado.innerHTML = '<h2>ERROR</h2><p>' + mensaje + '</p>';
+    divResultado.style.display = 'block';
+    botonReiniciar.style.display = 'block';
+  }
+
+  botonReiniciar.addEventListener('click', iniciarEscaner);
+
+  iniciarEscaner();
+</script>
+</body>
+</html>
