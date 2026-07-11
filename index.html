@@ -3,80 +3,218 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Escaner de acceso - Eventos</title>
+<title>Escaner UC - Control de acceso</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
   * { box-sizing: border-box; }
+  :root {
+    --azul: #1E6B3C;
+    --azul-oscuro: #123D26;
+    --arena: #FDF3D8;
+    --verde: #2e7d32;
+    --rojo: #c62828;
+    --ambar: #b8860b;
+  }
   body {
-    font-family: Arial, sans-serif;
-    background: #f2f2f2;
+    font-family: Verdana, Arial, sans-serif;
+    background: #eef2f6;
     margin: 0;
-    padding: 16px;
+    padding: 0 0 24px;
     display: flex;
     flex-direction: column;
     align-items: center;
   }
-  h1 { font-size: 18px; margin-bottom: 8px; text-align: center; }
-  #reader { width: 100%; max-width: 420px; border-radius: 8px; overflow: hidden; }
-  #resultado {
+  header {
+    width: 100%;
+    background: var(--azul);
+    color: #fff;
+    padding: 18px 16px;
+    text-align: center;
+  }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: 0.5px; }
+  header p { margin: 4px 0 0; font-size: 12px; color: var(--arena); }
+
+  #tabs {
+    display: flex;
     width: 100%;
     max-width: 420px;
-    margin-top: 16px;
-    padding: 16px;
+    margin: 16px 0 0;
+    gap: 8px;
+    padding: 0 16px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
     border-radius: 8px;
     background: #fff;
-    display: none;
+    color: var(--azul);
+    border: 2px solid var(--azul);
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
   }
-  #resultado.ok { border: 3px solid #2e7d32; }
-  #resultado.error { border: 3px solid #c62828; }
-  #resultado.usado { border: 3px solid #f9a825; }
-  #resultado h2 { margin: 0 0 8px; font-size: 20px; }
-  #resultado p { margin: 4px 0; font-size: 15px; }
-  #resultado button {
-    margin-top: 12px;
+  .tab.activo { background: var(--azul); color: #fff; }
+
+  main { width: 100%; max-width: 420px; padding: 16px; }
+
+  #reader { width: 100%; border-radius: 10px; overflow: hidden; }
+
+  #panelDni { display: none; }
+  #panelDni input {
     width: 100%;
     padding: 12px;
     font-size: 16px;
-    border: none;
-    border-radius: 6px;
-    background: #2e7d32;
-    color: #fff;
-    cursor: pointer;
+    border: 2px solid var(--azul);
+    border-radius: 8px;
+    margin-bottom: 10px;
   }
-  #resultado button:disabled { background: #999; }
-  #reiniciar {
-    margin-top: 12px;
+  #panelDni button {
     width: 100%;
-    max-width: 420px;
-    padding: 10px;
-    background: #444;
-    color: #fff;
+    padding: 12px;
+    font-size: 15px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
+    background: var(--azul);
+    color: #fff;
     cursor: pointer;
   }
+
+  .tarjeta {
+    margin-top: 16px;
+    padding: 18px;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  }
+  .tarjeta.ok { border-left: 6px solid var(--verde); }
+  .tarjeta.error { border-left: 6px solid var(--rojo); }
+  .tarjeta.usado { border-left: 6px solid var(--ambar); }
+
+  .tarjeta h2 { margin: 0 0 12px; font-size: 17px; color: var(--azul-oscuro); }
+  .fila-dato { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  .fila-dato span:first-child { color: #666; }
+  .fila-dato span:last-child { font-weight: bold; text-align: right; }
+
+  .indicacion {
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: var(--arena);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--azul-oscuro);
+  }
+
+  .tarjeta button.accion {
+    margin-top: 14px;
+    width: 100%;
+    padding: 13px;
+    font-size: 15px;
+    border: none;
+    border-radius: 8px;
+    background: var(--verde);
+    color: #fff;
+    cursor: pointer;
+  }
+  .tarjeta button.accion:disabled { background: #999; }
+
+  #reiniciar {
+    margin-top: 14px;
+    width: 100%;
+    padding: 11px;
+    background: var(--azul-oscuro);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: none;
+  }
+
+  .lista-coincidencias { margin-top: 12px; }
+  .item-coincidencia {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  .item-coincidencia:hover { border-color: var(--azul); }
 </style>
 </head>
 <body>
 
-<h1>Escaner de acceso - Eventos</h1>
-<div id="reader"></div>
-<div id="resultado"></div>
-<button id="reiniciar" style="display:none;">Escanear siguiente</button>
+<header>
+  <h1>ESCANER UC</h1>
+  <p>Control de acceso - Universidad Continental</p>
+</header>
+
+<div id="tabs">
+  <div class="tab activo" id="tabQr">Escanear QR</div>
+  <div class="tab" id="tabDni">Reingreso (DNI)</div>
+</div>
+
+<main>
+  <div id="panelQr">
+    <div id="reader"></div>
+  </div>
+
+  <div id="panelDni">
+    <input id="inputDni" type="text" inputmode="numeric" placeholder="Ingrese el DNI de la persona">
+    <button id="btnBuscarDni">Buscar</button>
+  </div>
+
+  <div id="resultado"></div>
+  <button id="reiniciar">Escanear siguiente</button>
+</main>
 
 <script>
   const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx3D_ijj7w_SUYUXPstrmOUtmA3_lYVkjXvapDdpRQTGmtYTNMkItzI613lSQVQSOAQAA/exec';
 
   const divResultado = document.getElementById('resultado');
   const botonReiniciar = document.getElementById('reiniciar');
-  let escaneando = true;
+  const panelQr = document.getElementById('panelQr');
+  const panelDni = document.getElementById('panelDni');
+  const tabQr = document.getElementById('tabQr');
+  const tabDni = document.getElementById('tabDni');
 
+  let escaneando = true;
   const scanner = new Html5Qrcode('reader');
+
+  function irATabQr() {
+    tabQr.classList.add('activo');
+    tabDni.classList.remove('activo');
+    panelQr.style.display = 'block';
+    panelDni.style.display = 'none';
+    limpiarResultado();
+    iniciarEscaner();
+  }
+
+  function irATabDni() {
+    tabDni.classList.add('activo');
+    tabQr.classList.remove('activo');
+    panelDni.style.display = 'block';
+    panelQr.style.display = 'none';
+    limpiarResultado();
+    detenerEscanerSiActivo();
+  }
+
+  tabQr.addEventListener('click', irATabQr);
+  tabDni.addEventListener('click', irATabDni);
+
+  function detenerEscanerSiActivo() {
+    if (scanner.getState && scanner.getState() === 2) {
+      scanner.stop().catch(function () {});
+    }
+  }
+
+  function limpiarResultado() {
+    divResultado.style.display = 'none';
+    divResultado.innerHTML = '';
+    botonReiniciar.style.display = 'none';
+  }
 
   function iniciarEscaner() {
     escaneando = true;
-    divResultado.style.display = 'none';
-    botonReiniciar.style.display = 'none';
     scanner.start(
       { facingMode: 'environment' },
       { fps: 10, qrbox: 250 },
@@ -93,12 +231,19 @@
     consultarCodigo(codigoDecodificado);
   }
 
+  function formatearHora(fechaTexto) {
+    // Espera dd/mm/aaaa hh:mm:ss -> devuelve solo hh:mm
+    const partes = String(fechaTexto).split(' ');
+    if (partes.length < 2) return fechaTexto;
+    return partes[1].slice(0, 5);
+  }
+
   function consultarCodigo(codigo) {
     fetch(WEBAPP_URL + '?accion=consultar&codigo=' + encodeURIComponent(codigo))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.encontrado) {
-          mostrarError('Codigo no encontrado. Verifica el QR.');
+          mostrarError('Codigo no encontrado. Verifica el QR con el participante.');
           return;
         }
         mostrarParticipante(codigo, data);
@@ -110,35 +255,40 @@
 
   function mostrarParticipante(codigo, data) {
     const yaIngreso = data.estado === 'INGRESO';
-    divResultado.className = yaIngreso ? 'usado' : '';
+    divResultado.className = 'tarjeta ' + (yaIngreso ? 'usado' : '');
     divResultado.innerHTML =
-      '<h2>' + (yaIngreso ? 'YA REGISTRO INGRESO' : 'DATOS DEL PARTICIPANTE') + '</h2>' +
-      '<p><b>Nombre:</b> ' + data.nombre + '</p>' +
-      '<p><b>DNI:</b> ' + data.dni + '</p>' +
-      '<p><b>Evento:</b> ' + data.evento + '</p>' +
-      '<p><b>Fecha:</b> ' + data.fecha + '</p>' +
-      '<p><b>Lugar / Area:</b> ' + data.lugar + '</p>' +
-      (yaIngreso ? '<p><b>Hora de ingreso:</b> ' + data.horaIngreso + '</p>' : '') +
-      (yaIngreso ? '' : '<button id="btnRegistrar">Confirmar ingreso</button>');
+      '<h2>' + (yaIngreso ? 'Ya registro su ingreso' : 'Ingreso autorizado') + '</h2>' +
+      filaDato('Nombre', data.nombre) +
+      filaDato('DNI', data.dni) +
+      filaDato('Evento', data.evento) +
+      filaDato('Hora del evento', formatearHora(data.fecha)) +
+      filaDato('Lugar / sala', data.lugar) +
+      (yaIngreso ? filaDato('Hora de ingreso', data.horaIngreso) : '') +
+      '<div class="indicacion">' + (yaIngreso
+        ? 'Esta persona ya ingreso antes. Si salio del campus y necesita reingresar, use la pestaña "Reingreso (DNI)" en vez del QR.'
+        : 'Verifique el DNI fisico del participante y oriente a: <b>' + (data.lugar || 'el lugar indicado') + '</b>.') +
+      '</div>' +
+      (yaIngreso ? '' : '<button class="accion" id="btnConfirmar">Confirmar ingreso</button>');
+
     divResultado.style.display = 'block';
     botonReiniciar.style.display = 'block';
 
     if (!yaIngreso) {
-      document.getElementById('btnRegistrar').addEventListener('click', function () {
-        registrarIngreso(codigo, this);
+      document.getElementById('btnConfirmar').addEventListener('click', function () {
+        confirmarIngreso(codigo, this);
       });
     }
   }
 
-  function registrarIngreso(codigo, boton) {
+  function confirmarIngreso(codigo, boton) {
     boton.disabled = true;
     boton.textContent = 'Registrando...';
     fetch(WEBAPP_URL + '?accion=registrar&codigo=' + encodeURIComponent(codigo))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.ok) {
-          divResultado.className = 'ok';
-          divResultado.querySelector('h2').textContent = 'INGRESO AUTORIZADO';
+          divResultado.className = 'tarjeta ok';
+          divResultado.querySelector('h2').textContent = 'Ingreso registrado';
           boton.remove();
         } else {
           mostrarError(data.mensaje || 'No se pudo registrar el ingreso.');
@@ -146,14 +296,97 @@
       });
   }
 
+  function filaDato(etiqueta, valor) {
+    return '<div class="fila-dato"><span>' + etiqueta + '</span><span>' + (valor || '-') + '</span></div>';
+  }
+
   function mostrarError(mensaje) {
-    divResultado.className = 'error';
-    divResultado.innerHTML = '<h2>ERROR</h2><p>' + mensaje + '</p>';
+    divResultado.className = 'tarjeta error';
+    divResultado.innerHTML = '<h2>Atencion</h2><p>' + mensaje + '</p>';
     divResultado.style.display = 'block';
     botonReiniciar.style.display = 'block';
   }
 
-  botonReiniciar.addEventListener('click', iniciarEscaner);
+  botonReiniciar.addEventListener('click', function () {
+    limpiarResultado();
+    if (panelQr.style.display !== 'none') iniciarEscaner();
+  });
+
+  // --- Modo reingreso por DNI ---
+  document.getElementById('btnBuscarDni').addEventListener('click', function () {
+    const dni = document.getElementById('inputDni').value.trim();
+    if (!dni) return;
+    fetch(WEBAPP_URL + '?accion=buscarDni&dni=' + encodeURIComponent(dni))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok || !data.coincidencias || data.coincidencias.length === 0) {
+          mostrarError('No se encontro a nadie con ese DNI en CONTROL_INGRESOS.');
+          return;
+        }
+        if (data.coincidencias.length === 1) {
+          mostrarOpcionReingreso(data.coincidencias[0]);
+        } else {
+          mostrarListaCoincidencias(data.coincidencias);
+        }
+      })
+      .catch(function () {
+        mostrarError('No se pudo conectar con el sistema.');
+      });
+  });
+
+  function mostrarListaCoincidencias(coincidencias) {
+    divResultado.className = 'tarjeta';
+    let html = '<h2>Se encontraron varios registros</h2><div class="lista-coincidencias">';
+    coincidencias.forEach(function (c, idx) {
+      html += '<div class="item-coincidencia" data-idx="' + idx + '">' +
+        '<b>' + c.evento + '</b><br>' + c.nombre + ' - ' + formatearHora(c.fecha) + '</div>';
+    });
+    html += '</div>';
+    divResultado.innerHTML = html;
+    divResultado.style.display = 'block';
+    botonReiniciar.style.display = 'block';
+
+    Array.from(document.getElementsByClassName('item-coincidencia')).forEach(function (el, idx) {
+      el.addEventListener('click', function () { mostrarOpcionReingreso(coincidencias[idx]); });
+    });
+  }
+
+  function mostrarOpcionReingreso(persona) {
+    const noIngreso = persona.estado !== 'INGRESO';
+    divResultado.className = 'tarjeta ' + (noIngreso ? 'error' : '');
+    divResultado.innerHTML =
+      '<h2>Reingreso</h2>' +
+      filaDato('Nombre', persona.nombre) +
+      filaDato('DNI', persona.dni) +
+      filaDato('Evento', persona.evento) +
+      filaDato('Hora del evento', formatearHora(persona.fecha)) +
+      filaDato('Lugar / sala', persona.lugar) +
+      filaDato('Reingresos previos', persona.reingresos) +
+      (noIngreso
+        ? '<div class="indicacion">Esta persona no tiene un ingreso inicial registrado. Debe escanear su QR primero.</div>'
+        : '<button class="accion" id="btnConfirmarReingreso">Confirmar reingreso</button>');
+    divResultado.style.display = 'block';
+    botonReiniciar.style.display = 'block';
+
+    if (!noIngreso) {
+      document.getElementById('btnConfirmarReingreso').addEventListener('click', function () {
+        this.disabled = true;
+        this.textContent = 'Registrando...';
+        const boton = this;
+        fetch(WEBAPP_URL + '?accion=reingreso&fila=' + persona.fila)
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok) {
+              divResultado.className = 'tarjeta ok';
+              divResultado.querySelector('h2').textContent = 'Reingreso registrado';
+              boton.remove();
+            } else {
+              mostrarError(data.mensaje);
+            }
+          });
+      });
+    }
+  }
 
   iniciarEscaner();
 </script>
