@@ -58,7 +58,7 @@
 
   main { width: 100%; max-width: 420px; padding: 16px; }
 
-  #reader { width: 100%; border-radius: 10px; overflow: hidden; }
+  #reader { width: 100%; border-radius: 10px; overflow: hidden; border: 3px solid var(--azul); }
 
   #panelDni { display: none; }
   #panelDni input {
@@ -319,6 +319,10 @@
     fetch(WEBAPP_URL + '?accion=buscarDni&dni=' + encodeURIComponent(dni))
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        if (data.mensaje === 'Accion no reconocida') {
+          mostrarError('El sistema no reconoce esta funcion todavia. Verifica que el script de CONTROL_INGRESOS este actualizado y que hayas creado una Nueva version en Implementar > Gestionar implementaciones.');
+          return;
+        }
         if (!data.ok || !data.coincidencias || data.coincidencias.length === 0) {
           mostrarError('No se encontro a nadie con ese DNI en CONTROL_INGRESOS.');
           return;
