@@ -33,27 +33,31 @@
     max-width: 900px;
     margin: 0 auto 16px;
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-end;
     padding: 0 16px;
   }
+  .campoControl { display: flex; flex-direction: column; gap: 4px; }
+  .campoControl label { font-size: 11px; color: #555; font-weight: bold; }
   #controles input, #controles select {
     padding: 9px;
     font-size: 13px;
     border: 1px solid #ccc;
     border-radius: 6px;
   }
-  #buscar { flex: 2; min-width: 180px; }
-  #filtroEvento, #filtroFecha { flex: 1; min-width: 150px; }
+  .campoControl.busqueda { flex: 2; min-width: 180px; }
+  .campoControl.filtro { flex: 1; min-width: 150px; }
+  .campoControl input, .campoControl select { width: 100%; }
   #recargar {
-    padding: 9px 14px;
+    padding: 10px 14px;
     font-size: 13px;
     border: none;
     border-radius: 6px;
     background: var(--verde);
     color: #fff;
     cursor: pointer;
+    height: 37px;
   }
 
   #contenedorEventos { max-width: 900px; margin: 0 auto; padding: 0 16px; }
@@ -93,10 +97,19 @@
 <div id="actualizado">Cargando...</div>
 
 <div id="controles">
-  <input id="buscar" type="text" placeholder="Buscar por nombre o DNI...">
-  <select id="filtroEvento"><option value="">Todos los eventos</option></select>
-  <select id="filtroFecha"><option value="">Todas las fechas</option></select>
-  <button id="recargar">Actualizar ahora</button>
+  <div class="campoControl busqueda">
+    <label for="buscar">Buscar</label>
+    <input id="buscar" type="text" placeholder="Nombre o DNI...">
+  </div>
+  <div class="campoControl filtro">
+    <label for="filtroEvento">Evento</label>
+    <select id="filtroEvento"><option value="">Todos los eventos</option></select>
+  </div>
+  <div class="campoControl filtro">
+    <label for="filtroFecha">Fecha</label>
+    <select id="filtroFecha"><option value="">Todas las fechas</option></select>
+  </div>
+  <button id="recargar">Actualizar</button>
 </div>
 
 <div id="contenedorEventos"></div>
