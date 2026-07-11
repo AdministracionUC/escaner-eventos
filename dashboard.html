@@ -3,17 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monitoreo de ingresos - Eventos</title>
+<title>Monitoreo de ingresos - Eventos UC</title>
 <style>
   * { box-sizing: border-box; }
-  body {
-    font-family: Arial, sans-serif;
-    background: #f2f2f2;
-    margin: 0;
-    padding: 16px;
+  :root {
+    --verde: #1E6B3C;
+    --verde-oscuro: #123D26;
+    --crema: #FDF3D8;
   }
-  h1 { font-size: 20px; text-align: center; margin-bottom: 4px; }
-  #actualizado { text-align: center; font-size: 12px; color: #666; margin-bottom: 16px; }
+  body {
+    font-family: Verdana, Arial, sans-serif;
+    background: #eef2f6;
+    margin: 0;
+    padding: 0 0 24px;
+  }
+  header {
+    background: var(--verde);
+    color: #fff;
+    padding: 18px 16px;
+    text-align: center;
+    border-bottom: 4px solid #111;
+  }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: 0.5px; }
+  header p { margin: 4px 0 0; font-size: 12px; color: var(--crema); }
+
+  #actualizado { text-align: center; font-size: 12px; color: #666; margin: 12px 0; }
+
   #controles {
     max-width: 900px;
     margin: 0 auto 16px;
@@ -21,25 +36,27 @@
     gap: 8px;
     flex-wrap: wrap;
     align-items: center;
+    padding: 0 16px;
   }
-  #buscar {
-    flex: 1;
-    min-width: 180px;
-    padding: 8px;
-    font-size: 14px;
+  #controles input, #controles select {
+    padding: 9px;
+    font-size: 13px;
     border: 1px solid #ccc;
     border-radius: 6px;
   }
+  #buscar { flex: 2; min-width: 180px; }
+  #filtroEvento, #filtroFecha { flex: 1; min-width: 150px; }
   #recargar {
-    padding: 8px 14px;
-    font-size: 14px;
+    padding: 9px 14px;
+    font-size: 13px;
     border: none;
     border-radius: 6px;
-    background: #1565c0;
+    background: var(--verde);
     color: #fff;
     cursor: pointer;
   }
-  #contenedorEventos { max-width: 900px; margin: 0 auto; }
+
+  #contenedorEventos { max-width: 900px; margin: 0 auto; padding: 0 16px; }
   .tarjetaEvento {
     background: #fff;
     border-radius: 8px;
@@ -49,15 +66,14 @@
   }
   .cabeceraEvento {
     padding: 12px 16px;
-    background: #1565c0;
+    background: var(--verde);
     color: #fff;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    cursor: pointer;
   }
   .cabeceraEvento h2 { font-size: 15px; margin: 0; }
-  .cabeceraEvento .stats { font-size: 13px; opacity: 0.9; }
+  .cabeceraEvento .stats { font-size: 13px; color: var(--crema); }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; }
   th { background: #fafafa; }
@@ -69,11 +85,17 @@
 </head>
 <body>
 
-<h1>Monitoreo de ingresos por evento</h1>
+<header>
+  <h1>MONITOREO DE INGRESOS</h1>
+  <p>Control de acceso a eventos - Universidad Continental, Sede Cusco</p>
+</header>
+
 <div id="actualizado">Cargando...</div>
 
 <div id="controles">
-  <input id="buscar" type="text" placeholder="Buscar por nombre, DNI o evento...">
+  <input id="buscar" type="text" placeholder="Buscar por nombre o DNI...">
+  <select id="filtroEvento"><option value="">Todos los eventos</option></select>
+  <select id="filtroFecha"><option value="">Todas las fechas</option></select>
   <button id="recargar">Actualizar ahora</button>
 </div>
 
@@ -81,7 +103,6 @@
 <div id="vacio" class="oculto">No hay datos todavia. Verifica que CONTROL_INGRESOS tenga participantes.</div>
 
 <script>
-  // Misma URL de la app web usada en el escaner
   const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx3D_ijj7w_SUYUXPstrmOUtmA3_lYVkjXvapDdpRQTGmtYTNMkItzI613lSQVQSOAQAA/exec';
 
   let datosCompletos = [];
@@ -96,21 +117,44 @@
           return;
         }
         datosCompletos = data.participantes;
+        actualizarFiltros();
         pintarTodo();
-        const ahora = new Date();
         document.getElementById('actualizado').textContent =
-          'Actualizado: ' + ahora.toLocaleTimeString();
+          'Actualizado: ' + new Date().toLocaleTimeString();
       })
       .catch(function () {
         document.getElementById('actualizado').textContent = 'No se pudo conectar con el sistema.';
       });
   }
 
+  function actualizarFiltros() {
+    const selectEvento = document.getElementById('filtroEvento');
+    const selectFecha = document.getElementById('filtroFecha');
+    const valorEventoActual = selectEvento.value;
+    const valorFechaActual = selectFecha.value;
+
+    const eventosUnicos = Array.from(new Set(datosCompletos.map(function (p) { return p.evento; })));
+    const fechasUnicas = Array.from(new Set(datosCompletos.map(function (p) { return p.fecha; })));
+
+    selectEvento.innerHTML = '<option value="">Todos los eventos</option>' +
+      eventosUnicos.map(function (ev) { return '<option value="' + ev + '">' + ev + '</option>'; }).join('');
+    selectFecha.innerHTML = '<option value="">Todas las fechas</option>' +
+      fechasUnicas.map(function (f) { return '<option value="' + f + '">' + f + '</option>'; }).join('');
+
+    selectEvento.value = valorEventoActual;
+    selectFecha.value = valorFechaActual;
+  }
+
   function pintarTodo() {
-    const filtro = document.getElementById('buscar').value.trim().toLowerCase();
+    const texto = document.getElementById('buscar').value.trim().toLowerCase();
+    const eventoElegido = document.getElementById('filtroEvento').value;
+    const fechaElegida = document.getElementById('filtroFecha').value;
+
     const datosFiltrados = datosCompletos.filter(function (p) {
-      if (!filtro) return true;
-      return (p.nombre + ' ' + p.dni + ' ' + p.evento).toLowerCase().indexOf(filtro) !== -1;
+      if (eventoElegido && p.evento !== eventoElegido) return false;
+      if (fechaElegida && p.fecha !== fechaElegida) return false;
+      if (texto && (p.nombre + ' ' + p.dni).toLowerCase().indexOf(texto) === -1) return false;
+      return true;
     });
 
     const contenedor = document.getElementById('contenedorEventos');
@@ -122,7 +166,6 @@
     }
     document.getElementById('vacio').classList.add('oculto');
 
-    // Agrupar manteniendo el orden en que llegaron (por evento)
     const eventosOrden = [];
     const grupos = {};
     datosFiltrados.forEach(function (p) {
@@ -136,10 +179,6 @@
     eventosOrden.forEach(function (nombreEvento) {
       const filas = grupos[nombreEvento];
       const totalIngresaron = filas.filter(function (f) { return f.estado === 'INGRESO'; }).length;
-
-      const tarjeta = document.createElement('div');
-      tarjeta.className = 'tarjetaEvento';
-
       const fechaEvento = filas[0].fecha;
       const lugarEvento = filas[0].lugar;
 
@@ -153,31 +192,35 @@
           '<td class="' + (esIngreso ? 'estado-ingreso' : 'estado-pendiente') + '">' +
             (esIngreso ? 'Ingreso' : 'Pendiente') + '</td>' +
           '<td>' + (p.horaIngreso || '-') + '</td>' +
+          '<td>' + (p.reingresos || 0) + '</td>' +
           '</tr>';
       });
 
+      const tarjeta = document.createElement('div');
+      tarjeta.className = 'tarjetaEvento';
       tarjeta.innerHTML =
         '<div class="cabeceraEvento">' +
           '<div>' +
             '<h2>' + nombreEvento + '</h2>' +
-            '<div class="stats">' + fechaEvento + (lugarEvento ? ' · ' + lugarEvento : '') + '</div>' +
+            '<div class="stats">' + fechaEvento + (lugarEvento ? ' &middot; ' + lugarEvento : '') + '</div>' +
           '</div>' +
           '<div class="stats">' + totalIngresaron + ' / ' + filas.length + ' ingresaron</div>' +
         '</div>' +
         '<table>' +
-          '<thead><tr><th>Nombre</th><th>DNI</th><th>Estado</th><th>Hora ingreso</th></tr></thead>' +
+          '<thead><tr><th>Nombre</th><th>DNI</th><th>Estado</th><th>Hora ingreso</th><th>Reingresos</th></tr></thead>' +
           '<tbody>' + filasHtml + '</tbody>' +
         '</table>';
-
       contenedor.appendChild(tarjeta);
     });
   }
 
   document.getElementById('recargar').addEventListener('click', cargarDatos);
   document.getElementById('buscar').addEventListener('input', pintarTodo);
+  document.getElementById('filtroEvento').addEventListener('change', pintarTodo);
+  document.getElementById('filtroFecha').addEventListener('change', pintarTodo);
 
   cargarDatos();
-  setInterval(cargarDatos, 30000); // se refresca solo cada 30 segundos
+  setInterval(cargarDatos, 30000);
 </script>
 </body>
 </html>
