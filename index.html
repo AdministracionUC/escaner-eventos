@@ -377,7 +377,7 @@
         this.disabled = true;
         this.textContent = 'Registrando...';
         const boton = this;
-        fetch(WEBAPP_URL + '?accion=reingreso&fila=' + persona.fila)
+        fetch(WEBAPP_URL + '?accion=reingreso&hoja=' + encodeURIComponent(persona.hoja) + '&fila=' + persona.fila)
           .then(function (r) { return r.json(); })
           .then(function (data) {
             if (data.ok) {
