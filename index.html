@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Escaner UC - Control de acceso</title>
+<title>Control de Acceso a Eventos UC</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
   * { box-sizing: border-box; }
@@ -15,32 +15,50 @@
     --rojo: #c62828;
     --ambar: #b8860b;
   }
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
   body {
     font-family: Verdana, Arial, sans-serif;
     background: #eef2f6;
-    margin: 0;
-    padding: 0 0 24px;
+    min-height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
   }
-  header {
+
+  .tarjetaApp {
     width: 100%;
+    max-width: 460px;
+    background: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 20px rgba(0,0,0,0.08);
+  }
+
+  header {
     background: var(--azul);
     color: #fff;
-    padding: 18px 16px;
+    padding: 20px 16px 16px;
     text-align: center;
+    border-bottom: 4px solid #111111;
   }
-  header h1 { margin: 0; font-size: 20px; letter-spacing: 0.5px; }
-  header p { margin: 4px 0 0; font-size: 12px; color: var(--arena); }
+  header .titulo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  header .titulo span.icono { font-size: 22px; }
+  header h1 { margin: 0; font-size: 19px; letter-spacing: 0.3px; }
+  header p { margin: 6px 0 0; font-size: 12px; color: var(--arena); }
 
   #tabs {
     display: flex;
-    width: 100%;
-    max-width: 420px;
-    margin: 16px 0 0;
     gap: 8px;
-    padding: 0 16px;
+    padding: 14px 16px 0;
   }
   .tab {
     flex: 1;
@@ -56,9 +74,25 @@
   }
   .tab.activo { background: var(--azul); color: #fff; }
 
-  main { width: 100%; max-width: 420px; padding: 16px; }
+  main { flex: 1; padding: 16px; display: flex; flex-direction: column; }
 
-  #reader { width: 100%; border-radius: 10px; overflow: hidden; border: 3px solid var(--azul); }
+  #reader {
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 3px solid var(--azul);
+    background: #000;
+  }
+
+  #estadoCamara {
+    margin-top: 12px;
+    padding: 12px;
+    background: #f2f2f2;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 14px;
+    color: #444;
+  }
 
   #panelDni { display: none; }
   #panelDni input {
@@ -86,6 +120,7 @@
     border-radius: 10px;
     background: #fff;
     box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    border: 1px solid #eee;
   }
   .tarjeta.ok { border-left: 6px solid var(--verde); }
   .tarjeta.error { border-left: 6px solid var(--rojo); }
@@ -139,33 +174,56 @@
     cursor: pointer;
   }
   .item-coincidencia:hover { border-color: var(--azul); }
+
+  footer {
+    background: #111111;
+    color: #fff;
+    text-align: center;
+    padding: 14px 16px;
+    font-size: 12px;
+  }
+  footer .linea1 { font-weight: bold; }
+  footer .linea2 { color: #7fbf9b; margin-top: 2px; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>ESCANER UC</h1>
-  <p>Control de acceso - Universidad Continental</p>
-</header>
+<div class="tarjetaApp">
 
-<div id="tabs">
-  <div class="tab activo" id="tabQr">Escanear QR</div>
-  <div class="tab" id="tabDni">Reingreso (DNI)</div>
+  <header>
+    <div class="titulo">
+      <span class="icono">🪪</span>
+      <h1>CONTROL DE ACCESO A EVENTOS UC</h1>
+    </div>
+    <p>Universidad Continental &mdash; Sede Cusco</p>
+  </header>
+
+  <div id="tabs">
+    <div class="tab activo" id="tabQr">Escanear QR</div>
+    <div class="tab" id="tabDni">Reingreso (DNI)</div>
+  </div>
+
+  <main>
+    <div id="panelQr">
+      <div id="reader"></div>
+      <div id="estadoCamara">📷 Esperando credencial QR...</div>
+    </div>
+
+    <div id="panelDni">
+      <input id="inputDni" type="text" inputmode="numeric" placeholder="Ingrese el DNI de la persona">
+      <button id="btnBuscarDni">Buscar</button>
+    </div>
+
+    <div id="resultado"></div>
+    <button id="reiniciar">Escanear siguiente</button>
+  </main>
+
+  <footer>
+    <div class="linea1">Administración de Seguridad</div>
+    <div class="linea2">Universidad Continental Cusco</div>
+  </footer>
+
 </div>
-
-<main>
-  <div id="panelQr">
-    <div id="reader"></div>
-  </div>
-
-  <div id="panelDni">
-    <input id="inputDni" type="text" inputmode="numeric" placeholder="Ingrese el DNI de la persona">
-    <button id="btnBuscarDni">Buscar</button>
-  </div>
-
-  <div id="resultado"></div>
-  <button id="reiniciar">Escanear siguiente</button>
-</main>
 
 <script>
   const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx3D_ijj7w_SUYUXPstrmOUtmA3_lYVkjXvapDdpRQTGmtYTNMkItzI613lSQVQSOAQAA/exec';
@@ -176,6 +234,7 @@
   const panelDni = document.getElementById('panelDni');
   const tabQr = document.getElementById('tabQr');
   const tabDni = document.getElementById('tabDni');
+  const estadoCamara = document.getElementById('estadoCamara');
 
   let escaneando = true;
   const scanner = new Html5Qrcode('reader');
@@ -213,8 +272,13 @@
     botonReiniciar.style.display = 'none';
   }
 
+  function actualizarEstadoCamara(texto) {
+    estadoCamara.textContent = texto;
+  }
+
   function iniciarEscaner() {
     escaneando = true;
+    actualizarEstadoCamara('📷 Esperando credencial QR...');
     scanner.start(
       { facingMode: 'environment' },
       { fps: 10, qrbox: 250 },
@@ -227,15 +291,9 @@
   function onEscaneoExitoso(codigoDecodificado) {
     if (!escaneando) return;
     escaneando = false;
+    actualizarEstadoCamara('🔎 Verificando credencial...');
     scanner.stop();
     consultarCodigo(codigoDecodificado);
-  }
-
-  function formatearHora(fechaTexto) {
-    // Espera dd/mm/aaaa hh:mm:ss -> devuelve solo hh:mm
-    const partes = String(fechaTexto).split(' ');
-    if (partes.length < 2) return fechaTexto;
-    return partes[1].slice(0, 5);
   }
 
   function consultarCodigo(codigo) {
@@ -243,14 +301,23 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.encontrado) {
+          actualizarEstadoCamara('⚠️ Codigo no encontrado');
           mostrarError('Codigo no encontrado. Verifica el QR con el participante.');
           return;
         }
+        actualizarEstadoCamara(data.estado === 'INGRESO' ? '⚠️ Credencial ya usada' : '✅ Credencial valida');
         mostrarParticipante(codigo, data);
       })
       .catch(function () {
+        actualizarEstadoCamara('⚠️ Sin conexion');
         mostrarError('No se pudo conectar con el sistema. Revisa tu conexion.');
       });
+  }
+
+  function formatearHora(fechaTexto) {
+    const partes = String(fechaTexto).split(' ');
+    if (partes.length < 2) return fechaTexto;
+    return partes[1].slice(0, 5);
   }
 
   function mostrarParticipante(codigo, data) {
@@ -289,6 +356,7 @@
         if (data.ok) {
           divResultado.className = 'tarjeta ok';
           divResultado.querySelector('h2').textContent = 'Ingreso registrado';
+          actualizarEstadoCamara('✅ Ingreso registrado');
           boton.remove();
         } else {
           mostrarError(data.mensaje || 'No se pudo registrar el ingreso.');
