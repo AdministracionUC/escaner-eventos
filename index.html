@@ -362,7 +362,7 @@
       (yaIngreso ? filaDato('Hora de ingreso', data.horaIngreso) : '') +
       '<div class="indicacion">' + (yaIngreso
         ? 'Esta persona ya ingreso antes. Si salio del campus y necesita reingresar, use la pestaña "Reingreso (DNI)" en vez del QR.'
-        : 'Verifique el DNI fisico del participante y oriente a: <b>' + (data.lugar || 'el lugar indicado') + '</b>.') +
+        : 'Verificación completa del participante y oriente a: <b>' + (data.lugar || 'el lugar indicado') + '</b>.') +
       '</div>';
 
     mostrarTarjetaTemporal(yaIngreso ? 'usado' : 'ok', null, contenido, true);
