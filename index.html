@@ -227,6 +227,7 @@
 
 <script>
   const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx3D_ijj7w_SUYUXPstrmOUtmA3_lYVkjXvapDdpRQTGmtYTNMkItzI613lSQVQSOAQAA/exec';
+  const TIEMPO_TARJETA_MS = 5000; // cuanto tiempo se muestra la tarjeta antes de volver a escanear
 
   const divResultado = document.getElementById('resultado');
   const botonReiniciar = document.getElementById('reiniciar');
@@ -237,6 +238,7 @@
   const estadoCamara = document.getElementById('estadoCamara');
 
   let escaneando = true;
+  let temporizadorTarjeta = null;
   const scanner = new Html5Qrcode('reader');
 
   function irATabQr() {
@@ -267,6 +269,10 @@
   }
 
   function limpiarResultado() {
+    if (temporizadorTarjeta) {
+      clearTimeout(temporizadorTarjeta);
+      temporizadorTarjeta = null;
+    }
     divResultado.style.display = 'none';
     divResultado.innerHTML = '';
     botonReiniciar.style.display = 'none';
@@ -284,7 +290,7 @@
       { fps: 10, qrbox: 250 },
       onEscaneoExitoso
     ).catch(function (err) {
-      mostrarError('No se pudo acceder a la camara: ' + err);
+      mostrarTarjetaTemporal('error', 'Atencion', '<p>No se pudo acceder a la camara: ' + err + '</p>');
     });
   }
 
@@ -302,15 +308,38 @@
       .then(function (data) {
         if (!data.encontrado) {
           actualizarEstadoCamara('⚠️ Codigo no encontrado');
-          mostrarError('Codigo no encontrado. Verifica el QR con el participante.');
+          mostrarTarjetaTemporal('error', 'Atencion', '<p>Codigo no encontrado. Verifica el QR con el participante.</p>');
           return;
         }
-        actualizarEstadoCamara(data.estado === 'INGRESO' ? '⚠️ Credencial ya usada' : '✅ Credencial valida');
-        mostrarParticipante(codigo, data);
+        if (data.estado === 'INGRESO') {
+          actualizarEstadoCamara('⚠️ Credencial ya usada');
+          mostrarDatosParticipanteTemporal(data, true);
+          return;
+        }
+        // Persona sin ingreso registrado todavia: se registra automaticamente, sin pedir confirmacion
+        registrarIngresoAutomatico(codigo, data);
       })
       .catch(function () {
         actualizarEstadoCamara('⚠️ Sin conexion');
-        mostrarError('No se pudo conectar con el sistema. Revisa tu conexion.');
+        mostrarTarjetaTemporal('error', 'Atencion', '<p>No se pudo conectar con el sistema. Revisa tu conexion.</p>');
+      });
+  }
+
+  function registrarIngresoAutomatico(codigo, data) {
+    fetch(WEBAPP_URL + '?accion=registrar&codigo=' + encodeURIComponent(codigo))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.ok) {
+          actualizarEstadoCamara('✅ Ingreso registrado');
+          mostrarDatosParticipanteTemporal(data, false);
+        } else {
+          actualizarEstadoCamara('⚠️ ' + (res.mensaje || 'No se pudo registrar'));
+          mostrarTarjetaTemporal('error', 'Atencion', '<p>' + (res.mensaje || 'No se pudo registrar el ingreso.') + '</p>');
+        }
+      })
+      .catch(function () {
+        actualizarEstadoCamara('⚠️ Sin conexion');
+        mostrarTarjetaTemporal('error', 'Atencion', '<p>No se pudo conectar con el sistema al registrar el ingreso.</p>');
       });
   }
 
@@ -320,11 +349,11 @@
     return partes[1].slice(0, 5);
   }
 
-  function mostrarParticipante(codigo, data) {
-    const yaIngreso = data.estado === 'INGRESO';
-    divResultado.className = 'tarjeta ' + (yaIngreso ? 'usado' : '');
-    divResultado.innerHTML =
-      '<h2>' + (yaIngreso ? 'Ya registro su ingreso' : 'Ingreso autorizado') + '</h2>' +
+  // Muestra los datos del participante sin botones de accion, y a los 5 segundos
+  // cierra la tarjeta sola y vuelve a dejar la camara lista para el siguiente escaneo.
+  function mostrarDatosParticipanteTemporal(data, yaIngreso) {
+    const contenido =
+      '<h2>' + (yaIngreso ? 'Ya registro su ingreso' : 'Ingreso registrado') + '</h2>' +
       filaDato('Nombre', data.nombre) +
       filaDato('DNI', data.dni) +
       filaDato('Evento', data.evento) +
@@ -334,34 +363,24 @@
       '<div class="indicacion">' + (yaIngreso
         ? 'Esta persona ya ingreso antes. Si salio del campus y necesita reingresar, use la pestaña "Reingreso (DNI)" en vez del QR.'
         : 'Verifique el DNI fisico del participante y oriente a: <b>' + (data.lugar || 'el lugar indicado') + '</b>.') +
-      '</div>' +
-      (yaIngreso ? '' : '<button class="accion" id="btnConfirmar">Confirmar ingreso</button>');
+      '</div>';
 
-    divResultado.style.display = 'block';
-    botonReiniciar.style.display = 'block';
-
-    if (!yaIngreso) {
-      document.getElementById('btnConfirmar').addEventListener('click', function () {
-        confirmarIngreso(codigo, this);
-      });
-    }
+    mostrarTarjetaTemporal(yaIngreso ? 'usado' : 'ok', null, contenido, true);
   }
 
-  function confirmarIngreso(codigo, boton) {
-    boton.disabled = true;
-    boton.textContent = 'Registrando...';
-    fetch(WEBAPP_URL + '?accion=registrar&codigo=' + encodeURIComponent(codigo))
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.ok) {
-          divResultado.className = 'tarjeta ok';
-          divResultado.querySelector('h2').textContent = 'Ingreso registrado';
-          actualizarEstadoCamara('✅ Ingreso registrado');
-          boton.remove();
-        } else {
-          mostrarError(data.mensaje || 'No se pudo registrar el ingreso.');
-        }
-      });
+  // Tarjeta generica que se auto-cierra despues de TIEMPO_TARJETA_MS y reactiva el escaner.
+  // Si tituloYContenido ya trae su propio <h2>, pasar titulo=null.
+  function mostrarTarjetaTemporal(tipo, titulo, contenidoHtml, contenidoYaTraeTitulo) {
+    divResultado.className = 'tarjeta ' + tipo;
+    divResultado.innerHTML = contenidoYaTraeTitulo ? contenidoHtml : ('<h2>' + titulo + '</h2>' + contenidoHtml);
+    divResultado.style.display = 'block';
+    botonReiniciar.style.display = 'none';
+
+    if (temporizadorTarjeta) clearTimeout(temporizadorTarjeta);
+    temporizadorTarjeta = setTimeout(function () {
+      limpiarResultado();
+      if (panelQr.style.display !== 'none') iniciarEscaner();
+    }, TIEMPO_TARJETA_MS);
   }
 
   function filaDato(etiqueta, valor) {
@@ -380,7 +399,7 @@
     if (panelQr.style.display !== 'none') iniciarEscaner();
   });
 
-  // --- Modo reingreso por DNI ---
+  // --- Modo reingreso por DNI (sin cambios: aqui si se mantiene la confirmacion manual) ---
   document.getElementById('btnBuscarDni').addEventListener('click', function () {
     const dni = document.getElementById('inputDni').value.trim();
     if (!dni) return;
