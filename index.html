@@ -427,9 +427,22 @@
     });
   }
 
+  const MAX_REINGRESOS = 2; // debe coincidir con MAX_REINGRESOS del backend (.gs)
+
   function mostrarOpcionReingreso(persona) {
     const noIngreso = persona.estado !== 'INGRESO';
-    divResultado.className = 'tarjeta ' + (noIngreso ? 'error' : '');
+    const limiteAlcanzado = Number(persona.reingresos || 0) >= MAX_REINGRESOS;
+    divResultado.className = 'tarjeta ' + (noIngreso || limiteAlcanzado ? 'error' : '');
+
+    let bloqueAccion;
+    if (noIngreso) {
+      bloqueAccion = '<div class="indicacion">Esta persona no tiene un ingreso inicial registrado. Debe escanear su QR primero.</div>';
+    } else if (limiteAlcanzado) {
+      bloqueAccion = '<div class="indicacion">Esta persona ya alcanzo el limite de ' + MAX_REINGRESOS + ' reingresos permitidos. No se puede registrar otro.</div>';
+    } else {
+      bloqueAccion = '<button class="accion" id="btnConfirmarReingreso">Confirmar reingreso</button>';
+    }
+
     divResultado.innerHTML =
       '<h2>Reingreso</h2>' +
       filaDato('Nombre', persona.nombre) +
@@ -438,13 +451,11 @@
       filaDato('Hora del evento', formatearHora(persona.fecha)) +
       filaDato('Lugar / sala', persona.lugar) +
       filaDato('Reingresos previos', persona.reingresos) +
-      (noIngreso
-        ? '<div class="indicacion">Esta persona no tiene un ingreso inicial registrado. Debe escanear su QR primero.</div>'
-        : '<button class="accion" id="btnConfirmarReingreso">Confirmar reingreso</button>');
+      bloqueAccion;
     divResultado.style.display = 'block';
     botonReiniciar.style.display = 'block';
 
-    if (!noIngreso) {
+    if (!noIngreso && !limiteAlcanzado) {
       document.getElementById('btnConfirmarReingreso').addEventListener('click', function () {
         this.disabled = true;
         this.textContent = 'Registrando...';
