@@ -81,6 +81,8 @@
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; }
   th { background: #fafafa; }
+  /* Columna Reingresos: centrada tanto en el encabezado como en los datos */
+  th.col-reingresos, td.col-reingresos { text-align: center; }
   .estado-ingreso { color: #2e7d32; font-weight: bold; }
   .estado-pendiente { color: #999; }
   .oculto { display: none; }
@@ -205,7 +207,7 @@
           '<td class="' + (esIngreso ? 'estado-ingreso' : 'estado-pendiente') + '">' +
             (esIngreso ? 'Ingreso' : 'Pendiente') + '</td>' +
           '<td>' + (p.horaIngreso || '-') + '</td>' +
-          '<td>' + (p.reingresos || 0) + '</td>' +
+          '<td class="col-reingresos">' + (p.reingresos || 0) + '</td>' +
           '</tr>';
       });
 
@@ -220,7 +222,7 @@
           '<div class="stats">' + totalIngresaron + ' / ' + filas.length + ' ingresaron</div>' +
         '</div>' +
         '<table>' +
-          '<thead><tr><th>Nombre</th><th>DNI</th><th>Estado</th><th>Hora ingreso</th><th>Reingresos</th></tr></thead>' +
+          '<thead><tr><th>Nombre</th><th>DNI</th><th>Estado</th><th>Hora ingreso</th><th class="col-reingresos">Reingresos</th></tr></thead>' +
           '<tbody>' + filasHtml + '</tbody>' +
         '</table>';
       contenedor.appendChild(tarjeta);
