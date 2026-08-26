@@ -302,8 +302,10 @@
     consultarCodigo(codigoDecodificado);
   }
 
+  // Una sola llamada al backend: el script consulta y, si corresponde,
+  // registra el ingreso en la misma pasada (ver accion=escanear en el .gs)
   function consultarCodigo(codigo) {
-    fetch(WEBAPP_URL + '?accion=consultar&codigo=' + encodeURIComponent(codigo))
+    fetch(WEBAPP_URL + '?accion=escanear&codigo=' + encodeURIComponent(codigo))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.encontrado) {
@@ -311,35 +313,17 @@
           mostrarTarjetaTemporal('error', 'Atencion', '<p>Codigo no encontrado. Verifica el QR con el participante.</p>');
           return;
         }
-        if (data.estado === 'INGRESO') {
+        if (!data.registradoAhora) {
           actualizarEstadoCamara('⚠️ Credencial ya usada');
           mostrarDatosParticipanteTemporal(data, true);
-          return;
+        } else {
+          actualizarEstadoCamara('✅ Ingreso registrado');
+          mostrarDatosParticipanteTemporal(data, false);
         }
-        // Persona sin ingreso registrado todavia: se registra automaticamente, sin pedir confirmacion
-        registrarIngresoAutomatico(codigo, data);
       })
       .catch(function () {
         actualizarEstadoCamara('⚠️ Sin conexion');
         mostrarTarjetaTemporal('error', 'Atencion', '<p>No se pudo conectar con el sistema. Revisa tu conexion.</p>');
-      });
-  }
-
-  function registrarIngresoAutomatico(codigo, data) {
-    fetch(WEBAPP_URL + '?accion=registrar&codigo=' + encodeURIComponent(codigo))
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        if (res.ok) {
-          actualizarEstadoCamara('✅ Ingreso registrado');
-          mostrarDatosParticipanteTemporal(data, false);
-        } else {
-          actualizarEstadoCamara('⚠️ ' + (res.mensaje || 'No se pudo registrar'));
-          mostrarTarjetaTemporal('error', 'Atencion', '<p>' + (res.mensaje || 'No se pudo registrar el ingreso.') + '</p>');
-        }
-      })
-      .catch(function () {
-        actualizarEstadoCamara('⚠️ Sin conexion');
-        mostrarTarjetaTemporal('error', 'Atencion', '<p>No se pudo conectar con el sistema al registrar el ingreso.</p>');
       });
   }
 
@@ -349,8 +333,9 @@
     return partes[1].slice(0, 5);
   }
 
-  // Muestra los datos del participante sin botones de accion, y a los 5 segundos
-  // cierra la tarjeta sola y vuelve a dejar la camara lista para el siguiente escaneo.
+  // Muestra los datos del participante sin botones de accion, y a los pocos
+  // segundos cierra la tarjeta sola y vuelve a dejar la camara lista para el
+  // siguiente escaneo.
   function mostrarDatosParticipanteTemporal(data, yaIngreso) {
     const contenido =
       '<h2>' + (yaIngreso ? 'Ya registro su ingreso' : 'Ingreso registrado') + '</h2>' +
