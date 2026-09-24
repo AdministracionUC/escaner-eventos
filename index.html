@@ -214,11 +214,13 @@
     <div id="panelNombre">
       <input id="inputNombre" type="text" placeholder="Nombre o apellido de la persona">
       <button id="btnBuscarNombre">Buscar</button>
+      <div class="estadoIndice" style="font-size:11px;color:#777;margin-top:8px;text-align:center;"></div>
     </div>
 
     <div id="panelDni">
       <input id="inputDni" type="text" placeholder="DNI o nombre de la persona">
       <button id="btnBuscarDni">Buscar</button>
+      <div class="estadoIndice" style="font-size:11px;color:#777;margin-top:8px;text-align:center;"></div>
     </div>
 
     <div id="resultado"></div>
@@ -260,7 +262,7 @@
     panelNombre.style.display = cual === 'nombre' ? 'block' : 'none';
     panelDni.style.display = cual === 'dni' ? 'block' : 'none';
     limpiarResultado();
-    if (cual === 'qr') iniciarEscaner(); else detenerEscanerSiActivo();
+    if (cual === 'qr') iniciarEscaner(); else { detenerEscanerSiActivo(); cargarIndice(); }
   }
 
   tabQr.addEventListener('click', function () { mostrarPestana('qr'); });
@@ -325,6 +327,7 @@
         } else {
           actualizarEstadoCamara('✅ Ingreso registrado');
           mostrarDatosParticipanteTemporal(data, false);
+          cargarIndice();
         }
       })
       .catch(function () {
@@ -433,6 +436,90 @@
     });
   }
 
+  // --- Lista local de participantes: la busqueda por nombre/DNI es instantanea ---
+  let indice = [];
+  let indiceListo = false;
+  let cargandoIndice = false;
+  let recargarAlTerminar = false;
+
+  function normalizar(t) {
+    return String(t || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  }
+
+  function pintarEstadoIndice(texto) {
+    Array.from(document.getElementsByClassName('estadoIndice')).forEach(function (el) { el.textContent = texto; });
+  }
+
+  function cargarIndice() {
+    if (cargandoIndice) { recargarAlTerminar = true; return; }
+    cargandoIndice = true;
+    if (!indiceListo) pintarEstadoIndice('Cargando lista de participantes...');
+    fetch(WEBAPP_URL + '?accion=listado')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          indice = data.participantes.map(function (p) { p.busqueda = normalizar(p.nombre); return p; });
+          indiceListo = true;
+          pintarEstadoIndice('✅ Lista lista: ' + indice.length + ' participantes');
+        }
+      })
+      .catch(function () {
+        if (!indiceListo) pintarEstadoIndice('⚠️ No se pudo cargar la lista (se buscara en el servidor, mas lento)');
+      })
+      .then(function () {
+        cargandoIndice = false;
+        if (recargarAlTerminar) { recargarAlTerminar = false; cargarIndice(); }
+      });
+  }
+
+  function buscarLocalPorNombre(texto) {
+    const palabras = normalizar(texto).split(/\s+/).filter(Boolean);
+    return indice.filter(function (p) {
+      return palabras.every(function (w) { return p.busqueda.indexOf(w) !== -1; });
+    }).slice(0, 30);
+  }
+
+  function buscarLocalPorDni(dni) {
+    return indice.filter(function (p) { return String(p.dni).trim() === dni; });
+  }
+
+  // Busca en la lista local (instantaneo). Si la lista aun no cargo, usa el servidor.
+  function buscarRapido(esDni, texto, alSeleccionar, mensajeVacio) {
+    if (!indiceListo) {
+      const param = esDni ? 'accion=buscarDni&dni=' : 'accion=buscarNombre&nombre=';
+      buscarPersona(param + encodeURIComponent(texto), alSeleccionar, mensajeVacio);
+      return;
+    }
+    const resultados = esDni ? buscarLocalPorDni(texto) : buscarLocalPorNombre(texto);
+    if (resultados.length === 0) { mostrarError(mensajeVacio); return; }
+    if (resultados.length === 1) alSeleccionar(resultados[0]);
+    else mostrarListaCoincidencias(resultados, alSeleccionar);
+  }
+
+  function mostrarSinResultados(mensaje) {
+    divResultado.className = 'tarjeta';
+    divResultado.innerHTML = '<p style="margin:0;color:#666;font-size:13px;">' + mensaje + '</p>';
+    divResultado.style.display = 'block';
+    botonReiniciar.style.display = 'none';
+  }
+
+  // Ingreso por nombre: los resultados aparecen mientras se escribe
+  document.getElementById('inputNombre').addEventListener('input', function () {
+    const texto = this.value.trim();
+    if (texto.length < 3) { limpiarResultado(); return; }
+    if (!indiceListo) return; // sin lista local se usa el boton Buscar (servidor)
+    const resultados = buscarLocalPorNombre(texto);
+    if (resultados.length === 0) mostrarSinResultados('Sin coincidencias.');
+    else mostrarListaCoincidencias(resultados, mostrarOpcionIngreso);
+  });
+
+  document.getElementById('inputNombre').addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') document.getElementById('btnBuscarNombre').click();
+  });
+  document.getElementById('inputDni').addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') document.getElementById('btnBuscarDni').click();
+  });
+
   // --- Ingreso por nombre (personas sin QR) ---
   document.getElementById('btnBuscarNombre').addEventListener('click', function () {
     const nombre = document.getElementById('inputNombre').value.trim();
@@ -440,7 +527,7 @@
       mostrarError('Escribe al menos 3 letras del nombre.');
       return;
     }
-    buscarPersona('accion=buscarNombre&nombre=' + encodeURIComponent(nombre), mostrarOpcionIngreso, 'No se encontro a nadie con ese nombre.');
+    buscarRapido(false, nombre, mostrarOpcionIngreso, 'No se encontro a nadie con ese nombre.');
   });
 
   function mostrarOpcionIngreso(persona) {
@@ -473,6 +560,9 @@
             if (data.ok) {
               divResultado.className = 'tarjeta ok';
               divResultado.querySelector('h2').textContent = 'Ingreso registrado';
+              persona.estado = 'INGRESO';
+              persona.horaIngreso = data.horaIngreso;
+              cargarIndice();
               boton.remove();
               divResultado.insertAdjacentHTML('beforeend',
                 '<div class="indicacion">Oriente a: <b>' + (persona.lugar || 'el lugar indicado') + '</b>.</div>');
@@ -490,9 +580,9 @@
     const texto = document.getElementById('inputDni').value.trim();
     if (!texto) return;
     if (/^\d+$/.test(texto)) {
-      buscarPersona('accion=buscarDni&dni=' + encodeURIComponent(texto), mostrarOpcionReingreso, 'No se encontro a nadie con ese DNI.');
+      buscarRapido(true, texto, mostrarOpcionReingreso, 'No se encontro a nadie con ese DNI.');
     } else {
-      buscarPersona('accion=buscarNombre&nombre=' + encodeURIComponent(texto), mostrarOpcionReingreso, 'No se encontro a nadie con ese nombre.');
+      buscarRapido(false, texto, mostrarOpcionReingreso, 'No se encontro a nadie con ese nombre.');
     }
   });
 
@@ -533,6 +623,8 @@
             if (data.ok) {
               divResultado.className = 'tarjeta ok';
               divResultado.querySelector('h2').textContent = 'Reingreso registrado';
+              persona.reingresos = Number(persona.reingresos || 0) + 1;
+              cargarIndice();
               boton.remove();
             } else {
               mostrarError(data.mensaje);
@@ -543,6 +635,8 @@
     }
   }
 
+  cargarIndice();
+  setInterval(cargarIndice, 30000);
   iniciarEscaner();
 </script>
 </body>
