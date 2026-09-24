@@ -62,13 +62,13 @@
   }
   .tab {
     flex: 1;
-    padding: 10px;
+    padding: 10px 4px;
     text-align: center;
     border-radius: 8px;
     background: #fff;
     color: var(--azul);
     border: 2px solid var(--azul);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: bold;
     cursor: pointer;
   }
@@ -94,8 +94,8 @@
     color: #444;
   }
 
-  #panelDni { display: none; }
-  #panelDni input {
+  #panelDni, #panelNombre { display: none; }
+  #panelDni input, #panelNombre input {
     width: 100%;
     padding: 12px;
     font-size: 16px;
@@ -103,7 +103,7 @@
     border-radius: 8px;
     margin-bottom: 10px;
   }
-  #panelDni button {
+  #panelDni button, #panelNombre button {
     width: 100%;
     padding: 12px;
     font-size: 15px;
@@ -172,6 +172,7 @@
     border-radius: 8px;
     margin-bottom: 8px;
     cursor: pointer;
+    font-size: 13px;
   }
   .item-coincidencia:hover { border-color: var(--azul); }
 
@@ -200,7 +201,8 @@
 
   <div id="tabs">
     <div class="tab activo" id="tabQr">Escanear QR</div>
-    <div class="tab" id="tabDni">Reingreso (DNI)</div>
+    <div class="tab" id="tabNombre">Ingreso (Nombre)</div>
+    <div class="tab" id="tabDni">Reingreso</div>
   </div>
 
   <main>
@@ -209,13 +211,18 @@
       <div id="estadoCamara">📷 Esperando credencial QR...</div>
     </div>
 
+    <div id="panelNombre">
+      <input id="inputNombre" type="text" placeholder="Nombre o apellido de la persona">
+      <button id="btnBuscarNombre">Buscar</button>
+    </div>
+
     <div id="panelDni">
-      <input id="inputDni" type="text" inputmode="numeric" placeholder="Ingrese el DNI de la persona">
+      <input id="inputDni" type="text" placeholder="DNI o nombre de la persona">
       <button id="btnBuscarDni">Buscar</button>
     </div>
 
     <div id="resultado"></div>
-    <button id="reiniciar">Reingresar siguiente</button>
+    <button id="reiniciar">Nueva busqueda</button>
   </main>
 
   <footer>
@@ -228,12 +235,15 @@
 <script>
   const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx3D_ijj7w_SUYUXPstrmOUtmA3_lYVkjXvapDdpRQTGmtYTNMkItzI613lSQVQSOAQAA/exec';
   const TIEMPO_TARJETA_MS = 2500; // cuanto tiempo se muestra la tarjeta antes de volver a escanear
+  const MAX_REINGRESOS = 2; // debe coincidir con MAX_REINGRESOS del backend (.gs)
 
   const divResultado = document.getElementById('resultado');
   const botonReiniciar = document.getElementById('reiniciar');
   const panelQr = document.getElementById('panelQr');
+  const panelNombre = document.getElementById('panelNombre');
   const panelDni = document.getElementById('panelDni');
   const tabQr = document.getElementById('tabQr');
+  const tabNombre = document.getElementById('tabNombre');
   const tabDni = document.getElementById('tabDni');
   const estadoCamara = document.getElementById('estadoCamara');
 
@@ -241,26 +251,21 @@
   let temporizadorTarjeta = null;
   const scanner = new Html5Qrcode('reader');
 
-  function irATabQr() {
-    tabQr.classList.add('activo');
-    tabDni.classList.remove('activo');
-    panelQr.style.display = 'block';
-    panelDni.style.display = 'none';
+  // --- Pestañas ---
+  function mostrarPestana(cual) {
+    tabQr.classList.toggle('activo', cual === 'qr');
+    tabNombre.classList.toggle('activo', cual === 'nombre');
+    tabDni.classList.toggle('activo', cual === 'dni');
+    panelQr.style.display = cual === 'qr' ? 'block' : 'none';
+    panelNombre.style.display = cual === 'nombre' ? 'block' : 'none';
+    panelDni.style.display = cual === 'dni' ? 'block' : 'none';
     limpiarResultado();
-    iniciarEscaner();
+    if (cual === 'qr') iniciarEscaner(); else detenerEscanerSiActivo();
   }
 
-  function irATabDni() {
-    tabDni.classList.add('activo');
-    tabQr.classList.remove('activo');
-    panelDni.style.display = 'block';
-    panelQr.style.display = 'none';
-    limpiarResultado();
-    detenerEscanerSiActivo();
-  }
-
-  tabQr.addEventListener('click', irATabQr);
-  tabDni.addEventListener('click', irATabDni);
+  tabQr.addEventListener('click', function () { mostrarPestana('qr'); });
+  tabNombre.addEventListener('click', function () { mostrarPestana('nombre'); });
+  tabDni.addEventListener('click', function () { mostrarPestana('dni'); });
 
   function detenerEscanerSiActivo() {
     if (scanner.getState && scanner.getState() === 2) {
@@ -282,6 +287,7 @@
     estadoCamara.textContent = texto;
   }
 
+  // --- Modo QR ---
   function iniciarEscaner() {
     escaneando = true;
     actualizarEstadoCamara('📷 Esperando credencial QR...');
@@ -346,7 +352,7 @@
       filaDato('Lugar / sala', data.lugar) +
       (yaIngreso ? filaDato('Hora de ingreso', data.horaIngreso) : '') +
       '<div class="indicacion">' + (yaIngreso
-        ? 'Esta persona ya ingreso antes. Si salio del campus y necesita reingresar, use la pestaña "Reingreso (DNI)" en vez del QR.'
+        ? 'Esta persona ya ingreso antes. Si salio del campus y necesita reingresar, use la pestaña "Reingreso" en vez del QR.'
         : 'Verificación completa del participante y oriente a: <b>' + (data.lugar || 'el lugar indicado') + '</b>.') +
       '</div>';
 
@@ -354,7 +360,7 @@
   }
 
   // Tarjeta generica que se auto-cierra despues de TIEMPO_TARJETA_MS y reactiva el escaner.
-  // Si tituloYContenido ya trae su propio <h2>, pasar titulo=null.
+  // Si contenidoYaTraeTitulo es true, pasar titulo=null.
   function mostrarTarjetaTemporal(tipo, titulo, contenidoHtml, contenidoYaTraeTitulo) {
     divResultado.className = 'tarjeta ' + tipo;
     divResultado.innerHTML = contenidoYaTraeTitulo ? contenidoHtml : ('<h2>' + titulo + '</h2>' + contenidoHtml);
@@ -384,11 +390,9 @@
     if (panelQr.style.display !== 'none') iniciarEscaner();
   });
 
-  // --- Modo reingreso por DNI (sin cambios: aqui si se mantiene la confirmacion manual) ---
-  document.getElementById('btnBuscarDni').addEventListener('click', function () {
-    const dni = document.getElementById('inputDni').value.trim();
-    if (!dni) return;
-    fetch(WEBAPP_URL + '?accion=buscarDni&dni=' + encodeURIComponent(dni))
+  // --- Busqueda generica (ingreso por nombre y reingreso) ---
+  function buscarPersona(parametros, alSeleccionar, mensajeVacio) {
+    fetch(WEBAPP_URL + '?' + parametros)
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.mensaje === 'Accion no reconocida') {
@@ -396,26 +400,28 @@
           return;
         }
         if (!data.ok || !data.coincidencias || data.coincidencias.length === 0) {
-          mostrarError('No se encontro a nadie con ese DNI en CONTROL_INGRESOS.');
+          mostrarError(data.mensaje || mensajeVacio);
           return;
         }
         if (data.coincidencias.length === 1) {
-          mostrarOpcionReingreso(data.coincidencias[0]);
+          alSeleccionar(data.coincidencias[0]);
         } else {
-          mostrarListaCoincidencias(data.coincidencias);
+          mostrarListaCoincidencias(data.coincidencias, alSeleccionar);
         }
       })
       .catch(function () {
         mostrarError('No se pudo conectar con el sistema.');
       });
-  });
+  }
 
-  function mostrarListaCoincidencias(coincidencias) {
+  function mostrarListaCoincidencias(coincidencias, alSeleccionar) {
+    alSeleccionar = alSeleccionar || mostrarOpcionReingreso;
     divResultado.className = 'tarjeta';
-    let html = '<h2>Se encontraron varios registros</h2><div class="lista-coincidencias">';
+    let html = '<h2>Se encontraron ' + coincidencias.length + ' registros</h2><div class="lista-coincidencias">';
     coincidencias.forEach(function (c, idx) {
       html += '<div class="item-coincidencia" data-idx="' + idx + '">' +
-        '<b>' + c.evento + '</b><br>' + c.nombre + ' - ' + formatearHora(c.fecha) + '</div>';
+        '<b>' + c.nombre + '</b><br>' + c.evento + ' - ' + formatearHora(c.fecha) +
+        '<br>DNI: ' + (c.dni || 'sin DNI') + (c.estado === 'INGRESO' ? ' - ✅ ya ingreso' : '') + '</div>';
     });
     html += '</div>';
     divResultado.innerHTML = html;
@@ -423,11 +429,72 @@
     botonReiniciar.style.display = 'block';
 
     Array.from(document.getElementsByClassName('item-coincidencia')).forEach(function (el, idx) {
-      el.addEventListener('click', function () { mostrarOpcionReingreso(coincidencias[idx]); });
+      el.addEventListener('click', function () { alSeleccionar(coincidencias[idx]); });
     });
   }
 
-  const MAX_REINGRESOS = 2; // debe coincidir con MAX_REINGRESOS del backend (.gs)
+  // --- Ingreso por nombre (personas sin QR) ---
+  document.getElementById('btnBuscarNombre').addEventListener('click', function () {
+    const nombre = document.getElementById('inputNombre').value.trim();
+    if (nombre.length < 3) {
+      mostrarError('Escribe al menos 3 letras del nombre.');
+      return;
+    }
+    buscarPersona('accion=buscarNombre&nombre=' + encodeURIComponent(nombre), mostrarOpcionIngreso, 'No se encontro a nadie con ese nombre.');
+  });
+
+  function mostrarOpcionIngreso(persona) {
+    const yaIngreso = persona.estado === 'INGRESO';
+    divResultado.className = 'tarjeta ' + (yaIngreso ? 'usado' : '');
+
+    const bloque = yaIngreso
+      ? '<div class="indicacion">Esta persona ya registro su ingreso (' + (persona.horaIngreso || '-') + '). Si salio y vuelve a entrar, use la pestaña "Reingreso".</div>'
+      : '<button class="accion" id="btnConfirmarIngreso">Confirmar ingreso</button>';
+
+    divResultado.innerHTML =
+      '<h2>Ingreso por nombre</h2>' +
+      filaDato('Nombre', persona.nombre) +
+      filaDato('DNI', persona.dni) +
+      filaDato('Evento', persona.evento) +
+      filaDato('Hora del evento', formatearHora(persona.fecha)) +
+      filaDato('Lugar / sala', persona.lugar) +
+      bloque;
+    divResultado.style.display = 'block';
+    botonReiniciar.style.display = 'block';
+
+    if (!yaIngreso) {
+      document.getElementById('btnConfirmarIngreso').addEventListener('click', function () {
+        const boton = this;
+        boton.disabled = true;
+        boton.textContent = 'Registrando...';
+        fetch(WEBAPP_URL + '?accion=ingresoManual&hoja=' + encodeURIComponent(persona.hoja) + '&fila=' + persona.fila)
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok) {
+              divResultado.className = 'tarjeta ok';
+              divResultado.querySelector('h2').textContent = 'Ingreso registrado';
+              boton.remove();
+              divResultado.insertAdjacentHTML('beforeend',
+                '<div class="indicacion">Oriente a: <b>' + (persona.lugar || 'el lugar indicado') + '</b>.</div>');
+            } else {
+              mostrarError(data.mensaje);
+            }
+          })
+          .catch(function () { mostrarError('No se pudo conectar con el sistema.'); });
+      });
+    }
+  }
+
+  // --- Reingreso: por DNI (solo numeros) o por nombre (con letras) ---
+  document.getElementById('btnBuscarDni').addEventListener('click', function () {
+    const texto = document.getElementById('inputDni').value.trim();
+    if (!texto) return;
+    if (/^\d+$/.test(texto)) {
+      buscarPersona('accion=buscarDni&dni=' + encodeURIComponent(texto), mostrarOpcionReingreso, 'No se encontro a nadie con ese DNI.');
+    } else {
+      buscarPersona('accion=buscarNombre&nombre=' + encodeURIComponent(texto), mostrarOpcionReingreso, 'No se encontro a nadie con ese nombre.');
+    }
+  });
 
   function mostrarOpcionReingreso(persona) {
     const noIngreso = persona.estado !== 'INGRESO';
@@ -436,7 +503,7 @@
 
     let bloqueAccion;
     if (noIngreso) {
-      bloqueAccion = '<div class="indicacion">Esta persona no tiene un ingreso inicial registrado. Debe escanear su QR primero.</div>';
+      bloqueAccion = '<div class="indicacion">Esta persona no tiene un ingreso inicial registrado. Debe escanear su QR o usar la pestaña "Ingreso (Nombre)" primero.</div>';
     } else if (limiteAlcanzado) {
       bloqueAccion = '<div class="indicacion">Esta persona ya alcanzo el limite de ' + MAX_REINGRESOS + ' reingresos permitidos. No se puede registrar otro.</div>';
     } else {
@@ -470,7 +537,8 @@
             } else {
               mostrarError(data.mensaje);
             }
-          });
+          })
+          .catch(function () { mostrarError('No se pudo conectar con el sistema.'); });
       });
     }
   }
